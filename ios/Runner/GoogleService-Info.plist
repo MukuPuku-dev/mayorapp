@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCR95VzcG-_E1L0M0kCNB-oI0KLK0dkL2U</string>
+	<key>GCM_SENDER_ID</key>
+	<string>707616392800</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.municipality.mayorapp</string>
+	<key>PROJECT_ID</key>
+	<string>mayorapp-74460</string>
+	<key>STORAGE_BUCKET</key>
+	<string>mayorapp-74460.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:707616392800:ios:128bc7184c62e46d166505</string>
+</dict>
+</plist>

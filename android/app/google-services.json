@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "707616392800",
+    "project_id": "mayorapp-74460",
+    "storage_bucket": "mayorapp-74460.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:707616392800:android:b62b5b6e7053f0d7166505",
+        "android_client_info": {
+          "package_name": "com.municipality.mayorapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDW8Gr0vQlfIAS9PQ8jy0QetpCzCrp7KIM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
