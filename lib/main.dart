@@ -5,6 +5,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'DateConvert.dart';
+import 'Decisions.dart';
 import 'Schedule.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
@@ -27,9 +28,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+
 // import 'package:flutter_alarm_clock/flutter_alarm_clock.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-
 
 FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
 FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -97,8 +98,10 @@ String constructFCMPayload(Schedule schedule) {
     },
   );
 }
+
 List<dynamic>? authenticatedUsers;
 User? currentUser;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialize the plugin.
@@ -110,12 +113,15 @@ void main() async {
   );
   _registerFirebaseMessaging();
 
-  firestoreInstance.collection('settings').doc('authenticatedUsers').snapshots().listen((snapshot) {
-      authenticatedUsers = snapshot.data()?['emails'];
-      print("data changed");
-      runApp(const MyApp());
+  firestoreInstance
+      .collection('settings')
+      .doc('authenticatedUsers')
+      .snapshots()
+      .listen((snapshot) {
+    authenticatedUsers = snapshot.data()?['emails'];
+    print("data changed");
+    runApp(const MyApp());
   });
-
 }
 
 Future<void> _registerFirebaseMessaging() async {
@@ -241,10 +247,10 @@ class MyApp extends StatelessWidget {
             // User is logged in, show the ScheduleScreen
             currentUser = snapshot.data!;
 
-            if(authenticatedUsers!.contains(currentUser?.email))
-            return ScheduleScreen();
-            else  return CircularProgressIndicator();
-
+            if (authenticatedUsers!.contains(currentUser?.email))
+              return ScheduleScreen();
+            else
+              return CircularProgressIndicator();
           } else {
             // User is not logged in, show the login screen
             return LoginScreen();
@@ -264,13 +270,18 @@ class DateEntry {
     required this.schedules,
   });
 }
+
 Future<bool> _isUserAuthenticated(String email) async {
   print("authenticating user");
   final settingsDocRef =
-  firestoreInstance.collection('settings').doc('authenticatedUsers');
+      firestoreInstance.collection('settings').doc('authenticatedUsers');
   bool isUserAuthenticated = false;
 
-  await firestoreInstance.collection('settings').doc('authenticatedUsers').snapshots().listen((snapshot) {
+  await firestoreInstance
+      .collection('settings')
+      .doc('authenticatedUsers')
+      .snapshots()
+      .listen((snapshot) {
     print("upup");
     final List<dynamic>? emails = snapshot.data()?['emails'];
     print(emails);
@@ -290,14 +301,15 @@ Future<bool> _isUserAuthenticated(String email) async {
 class LoginScreen extends StatelessWidget {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com',
+    clientId:
+        '707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com',
   );
 
   Future<UserCredential?> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       final GoogleSignInAuthentication googleAuth =
-      await googleUser!.authentication;
+          await googleUser!.authentication;
 
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -305,7 +317,7 @@ class LoginScreen extends StatelessWidget {
       );
 
       final UserCredential userCredential =
-      await _firebaseAuth.signInWithCredential(credential);
+          await _firebaseAuth.signInWithCredential(credential);
 
       return userCredential;
     } catch (error) {
@@ -348,7 +360,6 @@ class ScheduleForm extends StatefulWidget {
   final Schedule? existingSchedule; // Add the existingSchedule parameter
 
   ScheduleForm({required this.onScheduleAdded, this.existingSchedule});
-
 
   @override
   _ScheduleFormState createState() => _ScheduleFormState();
@@ -436,15 +447,12 @@ class _ScheduleFormState extends State<ScheduleForm> {
         _selectedDate.day,
         _selectedTime.hour,
         _selectedTime.minute,
-        DateTime
-            .now()
-            .second,
+        DateTime.now().second,
       ),
       agenda: _agendaController.text,
       applicant: _applicantController.text,
       address: _addressController.text,
       remarks: _remarksController.text,
-
     );
     // imageUrl='';
     _agendaController.clear();
@@ -455,63 +463,99 @@ class _ScheduleFormState extends State<ScheduleForm> {
     widget.onScheduleAdded(schedule);
     if (existingSchedule != null) {
       // Update the existing schedule
-     schedule.uploader = existingSchedule!.uploader;
+      schedule.uploader = existingSchedule!.uploader;
 
-     schedule.editor = currentUser!.displayName;
-     schedule.id = existingSchedule!.id;
-      if(updateImage){
+      schedule.editor = currentUser!.displayName;
+      schedule.id = existingSchedule!.id;
+      if (updateImage) {
         await uploadImage();
         schedule.imageUrl = imageUrl;
-      }else{
-        schedule.imageUrl=existingSchedule!.imageUrl;
+      } else {
+        schedule.imageUrl = existingSchedule!.imageUrl;
       }
 
-     updateFireStoresSchedule(schedule);
+      updateFireStoresSchedule(schedule);
 
       // Update any other properties as needed
 
       // Call the callback function to inform the parent widget about the updated schedule
+    } else {
+      await uploadImage(); // this also gets u url.
+      schedule.setImageURL(imageUrl);
+      schedule.setUploader(currentUser?.displayName ?? '');
 
-    } else
-{
-    await uploadImage(); // this also gets u url.
-    schedule.setImageURL(imageUrl);
-    schedule.setUploader(currentUser?.displayName ?? '');
+      schedules_data.doc(schedule.time.toIso8601String()).set({
+        'time': schedule.time.toIso8601String(),
+        'agenda': schedule.agenda,
+        'applicant': schedule.applicant,
+        'address': schedule.address,
+        'remarks': schedule.remarks,
+        'imageUrl': schedule.imageUrl,
+        'uploader': schedule.uploader,
+      }, SetOptions(merge: true)).onError(
+          (e, _) => print("Error writing document: $e"));
 
+      sendNotification(schedule);
+    }
+    // get a list of notifications id
+    List<int> notificationIds = await getPendingNotificationIds();
+    print(notificationIds);
+    // get next notificationId
+    int newNotificationId = 0; // Start with the initial ID value
 
-
-    schedules_data.doc(schedule.time.toIso8601String()).set({
-      'time': schedule.time.toIso8601String(),
-      'agenda': schedule.agenda,
-      'applicant': schedule.applicant,
-      'address': schedule.address,
-      'remarks': schedule.remarks,
-      'imageUrl': schedule.imageUrl,
-      'uploader': schedule.uploader,
-    }, SetOptions(merge: true)).onError(
-            (e, _) => print("Error writing document: $e"));
-
-    sendNotification(schedule);
+    while (notificationIds.contains(newNotificationId)) {
+      newNotificationId++; // Increment the ID until a unique ID is found
+    }
+    TimeOfDay? timeOfDay = await getSelectedTime();
+    setAlarmTime(newNotificationId, schedule, timeOfDay!);
   }
-  }
-  Future<void> selectImage() async{
 
+  Future<void> selectImage() async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        if(existingSchedule != null) updateImage=true;
-        setState(() {
-          _selectedImage = File(pickedFile.path);
+      final imageSource = await showDialog<ImageSource>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: Text("Select Image Source"),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.camera),
+                  title: Text("Camera"),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.camera);
+                  },
+                ),
+                SizedBox(height: 16),
+                ListTile(
+                  leading: Icon(Icons.photo_library),
+                  title: Text("Gallery"),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 
-        });
+      if (imageSource != null) {
+        final pickedFile = await picker.pickImage(source: imageSource);
+        if (pickedFile != null) {
+          if (existingSchedule != null) updateImage = true;
+          setState(() {
+            _selectedImage = File(pickedFile.path);
+          });
+        }
       }
-    }catch (error) {
+    } catch (error) {
       // Handle any errors that occur during image upload
       print('Image Select error: $error');
     }
-
   }
+
 
   Future<String?> uploadImage() async {
     try {
@@ -531,12 +575,13 @@ class _ScheduleFormState extends State<ScheduleForm> {
           final downloadURL = await snapshot.ref.getDownloadURL();
 
           //delete the existing image if exists
-          if(updateImage){
+          if (updateImage) {
             // Get the current image URL from the schedule object
             final currentImageUrl = existingSchedule!.imageUrl;
             // Delete the previous image from Firebase Storage if it exists
             if (currentImageUrl != null) {
-              final storageRef = firebase_storage.FirebaseStorage.instance.refFromURL(currentImageUrl);
+              final storageRef = firebase_storage.FirebaseStorage.instance
+                  .refFromURL(currentImageUrl);
               await storageRef.delete();
             }
           }
@@ -554,7 +599,6 @@ class _ScheduleFormState extends State<ScheduleForm> {
 
     return null; // Return null if image upload fails or no image selected
   }
-
 
   Future<XFile?> compressImage(File file) async {
     try {
@@ -624,9 +668,7 @@ class _ScheduleFormState extends State<ScheduleForm> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: _selectedImage != null
-                        ?
-
-                    ClipRRect(
+                        ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.file(
                               _selectedImage!,
@@ -672,12 +714,88 @@ class _ScheduleFormState extends State<ScheduleForm> {
         ),
         ElevatedButton(
           onPressed: _addSchedule,
-          child: Text(widget.existingSchedule != null ? 'Update Schedule' : 'Add Schedule'),
+          child: Text(widget.existingSchedule != null
+              ? 'Update Schedule'
+              : 'Add Schedule'),
         ),
       ],
     );
   }
 }
+
+Future<List<int>> getPendingNotificationIds() async {
+  List<PendingNotificationRequest> notifications =
+      await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+  List<int> notificationIds =
+      notifications.map((notification) => notification.id).toList();
+  return notificationIds;
+}
+
+Future<TimeOfDay?> getSelectedTime() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? selectedTime = prefs.getString('selectedTime');
+  print("selectedTime: $selectedTime");
+  if (selectedTime != null) {
+    List<String> timeParts = selectedTime.split(':');
+    int hour = int.parse(timeParts[0]);
+    int minute = int.parse(timeParts[1]);
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+  return null; // Return null if no time is saved
+}
+Future<void> setAlarmTime(int notificationId, Schedule schedule,TimeOfDay _selectedTime) async {
+
+  final DateTime notificationTime =
+  DateTime(schedule.time.year, schedule.time.month,
+      schedule.time.day, _selectedTime.hour, _selectedTime.minute);
+  final String notificationTitle = '${DateFormat.jm().format(schedule.time)}--${schedule.agenda}';
+  final String notificationMessage = '${schedule.applicant}\n ${schedule.address}\n ${schedule.remarks}';
+  // Schedule the alarm notification
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+  AndroidNotificationDetails(
+    'channel_id',
+    'channel_name',
+    importance: Importance.max,
+    priority: Priority.high,
+    ticker: 'ticker',
+    fullScreenIntent: true,
+    color: Colors.red,
+    playSound: true,
+    usesChronometer: true, // Enable the chronometer
+    chronometerCountDown: true, // Set the chronometer to count down
+
+    // Enable playing sound
+    sound: RawResourceAndroidNotificationSound('alarm'),
+
+  );
+
+  const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+  DarwinNotificationDetails();
+  const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: androidPlatformChannelSpecifics,
+    iOS: iOSPlatformChannelSpecifics,
+  );
+  tz.initializeTimeZones();
+  final location = tz.local;
+
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    notificationId,
+    notificationTitle,
+    notificationMessage,
+    tz.TZDateTime.from(notificationTime, location),
+    platformChannelSpecifics,
+    uiLocalNotificationDateInterpretation:
+    UILocalNotificationDateInterpretation.absoluteTime,
+    androidScheduleMode: AndroidScheduleMode.alarmClock,
+    matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    payload: 'alarm_payload',
+  );
+  // FlutterAlarmClock.createAlarm(selectedTime.hour, selectedTime.minute);
+
+  print('Alarm set for ${tz.TZDateTime.from(notificationTime, location)}');
+}
+
+
 
 class ScheduleScreen extends StatefulWidget {
   @override
@@ -688,13 +806,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   List<DateEntry> _dateEntries = [];
   TimeOfDay _selectedTime = TimeOfDay(hour: 10, minute: 1);
 
-
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance!.addPostFrameCallback((_) {
-     loadSelectedTime();
+      loadSelectedTime();
       _loadSchedules();
     });
   }
@@ -704,6 +820,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     super.didChangeDependencies();
     _loadSchedules();
   }
+
   Future<void> loadSelectedTime() async {
     TimeOfDay? selectedTime = await getSelectedTime();
     if (selectedTime != null) {
@@ -712,6 +829,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       });
     }
   }
+  Future<void> saveSelectedTime(String selectedTime) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    print("saving shared");
+    await prefs.setString('selectedTime', selectedTime);
+  }
+
   void _loadSchedules() {
     schedules_data.snapshots().listen((QuerySnapshot snapshot) {
       final onlineSchedules = snapshot.docs
@@ -720,7 +843,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
             if (scheduleData != null) {
               var schedule = Schedule(
-                id:doc.id,
+                id: doc.id,
                 time: DateTime.parse(scheduleData['time'] as String),
                 agenda: scheduleData['agenda'] as String,
                 applicant: scheduleData['applicant'] as String,
@@ -800,10 +923,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
     return dateEntries;
   }
+  void _cancelReminder () async {
+    await flutterLocalNotificationsPlugin.cancelAll();
+    await saveSelectedTime("10:1");
+    await loadSelectedTime();
 
-
+  }
   void _showTimePicker() async {
-    final initialTime = _selectedTime ?? TimeOfDay.now(); // Use TimeOfDay.now() as default if _selectedTime is null
+    final initialTime = _selectedTime ??
+        TimeOfDay
+            .now(); // Use TimeOfDay.now() as default if _selectedTime is null
     final selectedTime = await showTimePicker(
       context: context,
       initialTime: initialTime!,
@@ -813,86 +942,31 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         _selectedTime = selectedTime;
       });
       saveSelectedTime('${selectedTime.hour}:${selectedTime.minute}');
-      setAlarmTime(selectedTime); // Call your function to set the alarm time here
+      // get a list of schedules to update notification time.
+      await flutterLocalNotificationsPlugin.cancelAll();
+      print('All pending schedules have been canceled.');
 
+      int notificationId = 0;
+      TimeOfDay? timeOfDay = await getSelectedTime();
+      List<Schedule> validSchedules = [];
+      for (var dateEntry in _dateEntries) {
+        for (var schedule in dateEntry.schedules) {
+          if (!_isPastDate(schedule.time)) {
+            validSchedules.add(schedule);
+            setAlarmTime(
+                notificationId,
+                schedule,timeOfDay!);
+            notificationId++;
+          }
+        }
+      }
     }
   }
-  Future<TimeOfDay?> getSelectedTime() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? selectedTime = prefs.getString('selectedTime');
-    print("selectedtime:${selectedTime}");
-    if (selectedTime != null) {
-      List<String> timeParts = selectedTime.split(':');
-      int hour = int.parse(timeParts[0]);
-      int minute = int.parse(timeParts[1].substring(0, 2));
-      return TimeOfDay(hour: hour, minute: minute);
-    }
-    return null; // Return null if no time is saved
-  }
-  Future<void> saveSelectedTime(String selectedTime) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    print("saving shared");
-    await prefs.setString('selectedTime', selectedTime);
-  }
 
 
 
-  Future<void> setAlarmTime(TimeOfDay selectedTime) async {
-    print("settting alarm");
-    // Convert selectedTime to DateTime
-    final now = DateTime.now();
-    final alarmDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    );
-    const BigTextStyleInformation bigTextStyleInformation = BigTextStyleInformation(
-      'This is a big text message',
-      htmlFormatContent: true,
-    );
 
-    // Schedule the alarm notification
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
-      'channel_id',
-      'channel_name',
-      importance: Importance.max,
-      priority: Priority.high,
-      ticker: 'ticker',
-      fullScreenIntent: true,
-      color:Colors.red,
-      playSound: true, // Enable playing sound
-      // sound: RawResourceAndroidNotificationSound('alarm'),
-      styleInformation: bigTextStyleInformation,
-    );
 
-    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-    DarwinNotificationDetails();
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
-    );
-
-    tz.initializeTimeZones();
-    final location = tz.local;
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      1,
-      'Alarm',
-      '',
-      tz.TZDateTime.from(alarmDateTime, location),
-      platformChannelSpecifics,
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-      androidAllowWhileIdle: true,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: 'alarm_payload',
-    );
-    // FlutterAlarmClock.createAlarm(selectedTime.hour, selectedTime.minute);
-
-    print('Alarm set for $selectedTime');
-  }
 
 
 
@@ -921,7 +995,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   void _deleteSchedule(Schedule schedule) async {
-
     deleteFireStoreSchedule(schedule);
     setState(() {
       _dateEntries.forEach((dateEntry) {
@@ -937,11 +1010,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final now = DateTime.now();
     return date.isBefore(now);
   }
+
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
-
 
   Color _getDateBackgroundColor(bool isEven) {
     if (isEven) {
@@ -966,20 +1041,40 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               child: Text(
                 _selectedTime?.hour == 10 && _selectedTime?.minute == 1
                     ? 'Set Reminder'
-                    : _selectedTime?.format(context) ?? 'Set Reminder',
+                    : _selectedTime?.format(context) ?? 'Set Time',
               ),
             ),
-            const Spacer(),
-            const Text(
-              'Developer: Mukesh Pokharel',
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.grey,
+
+            Visibility(
+              visible: _selectedTime?.hour != 10 || _selectedTime?.minute != 1,
+              child: IconButton(
+                onPressed: () {
+                  _cancelReminder(); // Function to cancel the reminder
+                },
+                icon: Icon(
+                  Icons.close,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Decisions()),
+                );
+              },
+              child: const Text(
+                'Developer: Mukesh Pokharel',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.grey,
+                ),
               ),
             ),
           ],
-        )
-        ,
+        ),
+
       ),
       body: ListView.builder(
         itemCount: _dateEntries.length,
@@ -987,7 +1082,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           final dateEntry = _dateEntries[index];
           final isEvenDate = index % 2 == 0;
           final isToday = _isToday(dateEntry.date);
-          final dateBackgroundColor =  isToday?Color(0xFF90F9E4):_getDateBackgroundColor(isEvenDate);
+          final dateBackgroundColor =
+              isToday ? Color(0xFF90F9E4) : _getDateBackgroundColor(isEvenDate);
 
           return Column(
             children: [
@@ -998,10 +1094,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     children: [
                       Text(
                         DateFormat.yMMMd().format(dateEntry.date),
-                        style: TextStyle(fontWeight: FontWeight.bold,
-                          color: isToday?Colors.red:Colors.black,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isToday ? Colors.red : Colors.black,
                         ),
-
                       ),
                       Expanded(
                         child: Align(
@@ -1014,7 +1110,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             )}   ${DateConverter.getNepaliDayOfWeekInString(DateFormat('EEEE').format(dateEntry.date))}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: isToday?Colors.red:Colors.black,
+                              color: isToday ? Colors.red : Colors.black,
                             ),
                           ),
                         ),
@@ -1038,73 +1134,83 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       : null;
 
                   return Container(
-                      color:  isToday?dateBackgroundColor:isEvenTime ? Colors.grey[100] : Colors.white,
+                      color: isToday
+                          ? dateBackgroundColor
+                          : isEvenTime
+                              ? Colors.grey[100]
+                              : Colors.white,
                       child: GestureDetector(
                         onLongPress: () {
-                          if(!isPastDate)
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                title: Text('Delete Schedule'),
-                                content: Text(
-                                    'Are you sure you want to delete this schedule?'),
-                                actions: <Widget>[
-                                  ElevatedButton(
-                                    style: ButtonStyle(
-                                      backgroundColor: MaterialStateProperty.all(Colors.blue),
-                                      // Customize the button style as desired
-                                    ),
-                                    child: Text('Edit',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        // Set the text color to red
+                          if (!isPastDate)
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text('Delete Schedule'),
+                                  content: Text(
+                                      'Are you sure you want to delete this schedule?'),
+                                  actions: <Widget>[
+                                    ElevatedButton(
+                                      style: ButtonStyle(
+                                        backgroundColor:
+                                            MaterialStateProperty.all(
+                                                Colors.blue),
+                                        // Customize the button style as desired
                                       ),
+                                      child: Text(
+                                        'Edit',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          // Set the text color to red
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        // Add your edit functionality here
+                                        Navigator.of(context).pop();
+
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          builder: (context) {
+                                            return SingleChildScrollView(
+                                              child: Container(
+                                                padding: EdgeInsets.only(
+                                                  bottom: MediaQuery.of(context)
+                                                      .viewInsets
+                                                      .bottom,
+                                                ),
+                                                child: ScheduleForm(
+                                                  onScheduleAdded: _addSchedule,
+                                                  existingSchedule: schedule,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        );
+                                        // editSchedule(schedule);
+
+                                        // Close the dialog
+                                      },
                                     ),
-                                    onPressed: () {
-                                      // Add your edit functionality here
-                                      Navigator.of(context).pop();
-
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        builder: (context) {
-                                          return SingleChildScrollView(
-                                            child: Container(
-                                              padding: EdgeInsets.only(
-                                                bottom: MediaQuery.of(context).viewInsets.bottom,
-                                              ),
-                                              child: ScheduleForm(
-                                                onScheduleAdded: _addSchedule, existingSchedule: schedule,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                      // editSchedule(schedule);
-
-                                      // Close the dialog
-                                    },
-                                  ),
-                                  TextButton(
-                                    child: Text('Cancel'),
-                                    onPressed: () {
-                                      Navigator.of(context)
-                                          .pop(); // Close the dialog
-                                    },
-                                  ),
-                                  TextButton(
-                                    child: Text('Delete'),
-                                    onPressed: () {
-                                      _deleteSchedule(schedule);
-                                      Navigator.of(context)
-                                          .pop(); // Close the dialog
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
+                                    TextButton(
+                                      child: Text('Cancel'),
+                                      onPressed: () {
+                                        Navigator.of(context)
+                                            .pop(); // Close the dialog
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: Text('Delete'),
+                                      onPressed: () {
+                                        _deleteSchedule(schedule);
+                                        Navigator.of(context)
+                                            .pop(); // Close the dialog
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
                         },
                         child: ListTile(
                           title: Row(
@@ -1118,47 +1224,54 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               SizedBox(width: 8),
                               Container(
-                                padding: EdgeInsets.only(right: 16), // Adjust the padding as per your preference
-                                child:
-                                (schedule.imageUrl != null && schedule.imageUrl?.isNotEmpty == true)
-                               ? GestureDetector(
-                                  onTap: () {
-                                    // Handle the image click here
-                                    if (schedule.imageUrl != null) {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Text('Uploaded Image'),
-                                            content: Image.network(schedule.imageUrl!),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                child: Text('Close'),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop(); // Close the dialog
-                                                },
-                                              ),
-                                            ],
-                                          );
+                                padding: EdgeInsets.only(right: 16),
+                                // Adjust the padding as per your preference
+                                child: (schedule.imageUrl != null &&
+                                        schedule.imageUrl?.isNotEmpty == true)
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          // Handle the image click here
+                                          if (schedule.imageUrl != null) {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: Text('Uploaded Image'),
+                                                  content: Image.network(
+                                                      schedule.imageUrl!),
+                                                  actions: <Widget>[
+                                                    TextButton(
+                                                      child: Text('Close'),
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop(); // Close the dialog
+                                                      },
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
                                         },
-                                      );
-                                    }
-                                  },
-                                  child: IconButton(
-                                    icon: Icon(Icons.image),
-                                    onPressed: () {
-                                      if (schedule.imageUrl != null) {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (BuildContext context) => ZoomableImagePage(
-                                              imageUrl: schedule.imageUrl!,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ):SizedBox(),
+                                        child: IconButton(
+                                          icon: Icon(Icons.image),
+                                          onPressed: () {
+                                            if (schedule.imageUrl != null) {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder:
+                                                      (BuildContext context) =>
+                                                          ZoomableImagePage(
+                                                    imageUrl:
+                                                        schedule.imageUrl!,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      )
+                                    : SizedBox(),
                               ),
                             ],
                           ),
@@ -1174,31 +1287,31 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 child: Container(
                                   margin: EdgeInsets.only(top: 4),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        schedule.uploader?? '',
+                                        schedule.uploader ?? '',
                                         style: TextStyle(
                                           fontSize: 9,
-                                          color: Colors.blue, // Customize the color as per your preference
+                                          color: Colors
+                                              .blue, // Customize the color as per your preference
                                         ),
                                       ),
                                       Text(
-                                        schedule.editor?? '',
+                                        schedule.editor ?? '',
                                         style: TextStyle(
                                           fontSize: 9,
-                                          color: Colors.blue, // Customize the color as per your preference
+                                          color: Colors
+                                              .blue, // Customize the color as per your preference
                                         ),
                                       ),
                                     ],
                                   ),
-
-
                                 ),
                               ),
                             ],
                           ),
-
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1209,17 +1322,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                         setState(() {
                                           schedule
                                               .setAttended(newValue ?? false);
-                                          schedule.setEditor(currentUser?.displayName ?? '');
+                                          schedule.setEditor(
+                                              currentUser?.displayName ?? '');
                                           // DatabaseHelper.updateSchedule(schedule);
                                           updateFireStoresSchedule(schedule);
                                         });
                                       },
                                     )
                                   : SizedBox(),
-
-
                             ],
-
                           ),
                         ),
                       ));
@@ -1253,8 +1364,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-
-
   void deleteFireStoreSchedule(Schedule schedule) {
     schedules_data.doc(schedule.id).delete().then(
           (value) => {
@@ -1263,12 +1372,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           },
           onError: (e) => print("Error deleting"),
         );
-    if(schedule.imageUrl!=null){
-      final storageRef = firebase_storage.FirebaseStorage.instance.refFromURL(schedule.imageUrl!);
+    if (schedule.imageUrl != null) {
+      final storageRef = firebase_storage.FirebaseStorage.instance
+          .refFromURL(schedule.imageUrl!);
       storageRef.delete();
     }
   }
-
 }
 
 void updateFireStoresSchedule(Schedule schedule) {
@@ -1279,12 +1388,13 @@ void updateFireStoresSchedule(Schedule schedule) {
     'address': schedule.address,
     'remarks': schedule.remarks,
     'attended': schedule.attended ? 1 : 0,
-    'imageUrl':schedule.imageUrl,
-    'uploader':schedule.uploader,
-    'editor':schedule.editor,
+    'imageUrl': schedule.imageUrl,
+    'uploader': schedule.uploader,
+    'editor': schedule.editor,
   }, SetOptions(merge: true)).onError(
-          (e, _) => print("Error writing document: $e"));
+      (e, _) => print("Error writing document: $e"));
 }
+
 class ZoomableImagePage extends StatelessWidget {
   final String imageUrl;
 
