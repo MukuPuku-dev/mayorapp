@@ -111,7 +111,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  _registerFirebaseMessaging();
+  await _registerFirebaseMessaging();
 
   firestoreInstance
       .collection('settings')
@@ -298,11 +298,23 @@ Future<bool> _isUserAuthenticated(String email) async {
   return isUserAuthenticated;
 }
 
+String getGoogleClientId() {
+  if (Platform.isAndroid) {
+    // Return the Android client ID
+    return '707616392800-tfsq93frcs766ohs1hc7ubguns430650.apps.googleusercontent.com';
+  } else if (Platform.isIOS) {
+    // Return the iOS client ID
+    return '707616392800-hm3qtoqtibha4a15b3noaoqf0it2jqu6.apps.googleusercontent.com';
+  } else {
+    // Return the browser client ID
+    return '707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com';
+  }
+}
+
 class LoginScreen extends StatelessWidget {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId:
-        '707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com',
+    clientId: getGoogleClientId(),
   );
 
   Future<UserCredential?> _signInWithGoogle() async {
@@ -556,7 +568,6 @@ class _ScheduleFormState extends State<ScheduleForm> {
     }
   }
 
-
   Future<String?> uploadImage() async {
     try {
       if (_selectedImage != null) {
@@ -743,16 +754,22 @@ Future<TimeOfDay?> getSelectedTime() async {
   }
   return null; // Return null if no time is saved
 }
-Future<void> setAlarmTime(int notificationId, Schedule schedule,TimeOfDay _selectedTime) async {
 
-  final DateTime notificationTime =
-  DateTime(schedule.time.year, schedule.time.month,
-      schedule.time.day, _selectedTime.hour, _selectedTime.minute);
-  final String notificationTitle = '${DateFormat.jm().format(schedule.time)}--${schedule.agenda}';
-  final String notificationMessage = '${schedule.applicant}\n ${schedule.address}\n ${schedule.remarks}';
+Future<void> setAlarmTime(
+    int notificationId, Schedule schedule, TimeOfDay _selectedTime) async {
+  final DateTime notificationTime = DateTime(
+      schedule.time.year,
+      schedule.time.month,
+      schedule.time.day,
+      _selectedTime.hour,
+      _selectedTime.minute);
+  final String notificationTitle =
+      '${DateFormat.jm().format(schedule.time)}--${schedule.agenda}';
+  final String notificationMessage =
+      '${schedule.applicant}\n ${schedule.address}\n ${schedule.remarks}';
   // Schedule the alarm notification
   const AndroidNotificationDetails androidPlatformChannelSpecifics =
-  AndroidNotificationDetails(
+      AndroidNotificationDetails(
     'channel_id',
     'channel_name',
     importance: Importance.max,
@@ -766,11 +783,14 @@ Future<void> setAlarmTime(int notificationId, Schedule schedule,TimeOfDay _selec
 
     // Enable playing sound
     sound: RawResourceAndroidNotificationSound('alarm'),
-
   );
 
   const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-  DarwinNotificationDetails();
+      DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: InterruptionLevel.timeSensitive);
   const NotificationDetails platformChannelSpecifics = NotificationDetails(
     android: androidPlatformChannelSpecifics,
     iOS: iOSPlatformChannelSpecifics,
@@ -785,7 +805,7 @@ Future<void> setAlarmTime(int notificationId, Schedule schedule,TimeOfDay _selec
     tz.TZDateTime.from(notificationTime, location),
     platformChannelSpecifics,
     uiLocalNotificationDateInterpretation:
-    UILocalNotificationDateInterpretation.absoluteTime,
+        UILocalNotificationDateInterpretation.absoluteTime,
     androidScheduleMode: AndroidScheduleMode.alarmClock,
     matchDateTimeComponents: DateTimeComponents.dateAndTime,
     payload: 'alarm_payload',
@@ -794,8 +814,6 @@ Future<void> setAlarmTime(int notificationId, Schedule schedule,TimeOfDay _selec
 
   print('Alarm set for ${tz.TZDateTime.from(notificationTime, location)}');
 }
-
-
 
 class ScheduleScreen extends StatefulWidget {
   @override
@@ -829,6 +847,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       });
     }
   }
+
   Future<void> saveSelectedTime(String selectedTime) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     print("saving shared");
@@ -923,12 +942,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
     return dateEntries;
   }
-  void _cancelReminder () async {
+
+  void _cancelReminder() async {
     await flutterLocalNotificationsPlugin.cancelAll();
     await saveSelectedTime("10:1");
     await loadSelectedTime();
-
   }
+
   void _showTimePicker() async {
     final initialTime = _selectedTime ??
         TimeOfDay
@@ -953,22 +973,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         for (var schedule in dateEntry.schedules) {
           if (!_isPastDate(schedule.time)) {
             validSchedules.add(schedule);
-            setAlarmTime(
-                notificationId,
-                schedule,timeOfDay!);
+            setAlarmTime(notificationId, schedule, timeOfDay!);
             notificationId++;
           }
         }
       }
     }
   }
-
-
-
-
-
-
-
 
   void _addSchedule(Schedule schedule) async {
     final isPastDate = _isPastDate(schedule.time);
@@ -1044,7 +1055,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     : _selectedTime?.format(context) ?? 'Set Time',
               ),
             ),
-
             Visibility(
               visible: _selectedTime?.hour != 10 || _selectedTime?.minute != 1,
               child: IconButton(
@@ -1074,7 +1084,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             ),
           ],
         ),
-
       ),
       body: ListView.builder(
         itemCount: _dateEntries.length,
