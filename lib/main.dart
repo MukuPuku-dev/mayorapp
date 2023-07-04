@@ -1037,7 +1037,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -1085,20 +1084,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           ],
         ),
       ),
-      body: ListView.builder(
-        itemCount: _dateEntries.length,
-        itemBuilder: (context, index) {
-          final dateEntry = _dateEntries[index];
-          final isEvenDate = index % 2 == 0;
+      body: ListView(
+        children: _dateEntries.map((dateEntry) {
+          final isEvenDate = _dateEntries.indexOf(dateEntry) % 2 == 0;
           final isToday = _isToday(dateEntry.date);
           final dateBackgroundColor =
-              isToday ? Color(0xFF90F9E4) : _getDateBackgroundColor(isEvenDate);
+          isToday ? Color(0xFF90F9E4) : _getDateBackgroundColor(isEvenDate);
 
-          return Column(
-            children: [
-              Container(
-                color: dateBackgroundColor,
-                child: ListTile(
+          return Card(
+            color: dateBackgroundColor,
+            child: Column(
+              children: [
+                ListTile(
                   title: Row(
                     children: [
                       Text(
@@ -1127,227 +1124,206 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ],
                   ),
                 ),
-              ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                itemCount: dateEntry.schedules.length,
-                itemBuilder: (context, index) {
-                  final schedule = dateEntry.schedules[index];
-                  final isEvenTime = index % 2 == 0;
-
+                ...dateEntry.schedules.map((schedule) {
+                  final isEvenTime = dateEntry.schedules.indexOf(schedule) % 2 == 0;
                   final isPastDate = _isPastDate(schedule.time);
-
                   final scheduleColor = isPastDate
                       ? (schedule.attended ? Colors.green : Colors.red)
                       : null;
 
-                  return Container(
-                      color: isToday
-                          ? dateBackgroundColor
-                          : isEvenTime
-                              ? Colors.grey[100]
-                              : Colors.white,
-                      child: GestureDetector(
-                        onLongPress: () {
-                          if (!isPastDate)
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: Text('Delete Schedule'),
-                                  content: Text(
-                                      'Are you sure you want to delete this schedule?'),
-                                  actions: <Widget>[
-                                    ElevatedButton(
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            MaterialStateProperty.all(
-                                                Colors.blue),
-                                        // Customize the button style as desired
+                  return Card(
+                    color: isToday
+                        ? Colors.white60
+                        : isEvenTime
+                        ? Colors.grey[100]
+                        : Colors.white,
+                    child: GestureDetector(
+                      onLongPress: () {
+                        if (!isPastDate)
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: Text('Delete Schedule'),
+                                content: Text(
+                                  'Are you sure you want to delete this schedule?',
+                                ),
+                                actions: <Widget>[
+                                  ElevatedButton(
+                                    style: ButtonStyle(
+                                      backgroundColor: MaterialStateProperty.all(
+                                        Colors.blue,
                                       ),
-                                      child: Text(
-                                        'Edit',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          // Set the text color to red
-                                        ),
+                                      // Customize the button style as desired
+                                    ),
+                                    child: Text(
+                                      'Edit',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        // Set the text color to red
                                       ),
-                                      onPressed: () {
-                                        // Add your edit functionality here
-                                        Navigator.of(context).pop();
+                                    ),
+                                    onPressed: () {
+                                      // Add your edit functionality here
+                                      Navigator.of(context).pop();
 
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          builder: (context) {
-                                            return SingleChildScrollView(
-                                              child: Container(
-                                                padding: EdgeInsets.only(
-                                                  bottom: MediaQuery.of(context)
-                                                      .viewInsets
-                                                      .bottom,
-                                                ),
-                                                child: ScheduleForm(
-                                                  onScheduleAdded: _addSchedule,
-                                                  existingSchedule: schedule,
-                                                ),
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        builder: (context) {
+                                          return SingleChildScrollView(
+                                            child: Container(
+                                              padding: EdgeInsets.only(
+                                                bottom: MediaQuery.of(context)
+                                                    .viewInsets
+                                                    .bottom,
                                               ),
-                                            );
-                                          },
-                                        );
-                                        // editSchedule(schedule);
+                                              child: ScheduleForm(
+                                                onScheduleAdded: _addSchedule,
+                                                existingSchedule: schedule,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                      // editSchedule(schedule);
 
-                                        // Close the dialog
+                                      // Close the dialog
+                                    },
+                                  ),
+                                  TextButton(
+                                    child: Text('Cancel'),
+                                    onPressed: () {
+                                      Navigator.of(context).pop(); // Close the dialog
+                                    },
+                                  ),
+                                  TextButton(
+                                    child: Text('Delete'),
+                                    onPressed: () {
+                                      _deleteSchedule(schedule);
+                                      Navigator.of(context).pop(); // Close the dialog
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                      },
+                      child: ListTile(
+                        title: Row(
+                          children: [
+                            Text(
+                              DateFormat.jm().format(schedule.time),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: scheduleColor,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Container(
+                              padding: EdgeInsets.only(right: 16),
+                              // Adjust the padding as per your preference
+                              child: (schedule.imageUrl != null &&
+                                  schedule.imageUrl?.isNotEmpty == true)
+                                  ? GestureDetector(
+                                onTap: () {
+                                  // Handle the image click here
+                                  if (schedule.imageUrl != null) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Uploaded Image'),
+                                          content: Image.network(
+                                            schedule.imageUrl!,
+                                          ),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text('Close'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop(); // Close the dialog
+                                              },
+                                            ),
+                                          ],
+                                        );
                                       },
+                                    );
+                                  }
+                                },
+                                child: IconButton(
+                                  icon: Icon(Icons.image),
+                                  onPressed: () {
+                                    if (schedule.imageUrl != null) {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (BuildContext context) =>
+                                              ZoomableImagePage(
+                                                imageUrl: schedule.imageUrl!,
+                                              ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              )
+                                  : SizedBox(),
+                            ),
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('विषय: ${schedule.agenda}'),
+                            Text('निम्तो कर्ता: ${schedule.applicant}'),
+                            Text('ठेगाना: ${schedule.address}'),
+                            Text('कैफियत: ${schedule.remarks}'),
+                            Align(
+                              alignment: Alignment.bottomRight,
+                              child: Container(
+                                margin: EdgeInsets.only(top: 4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      schedule.uploader ?? '',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.blue, // Customize the color as per your preference
+                                      ),
                                     ),
-                                    TextButton(
-                                      child: Text('Cancel'),
-                                      onPressed: () {
-                                        Navigator.of(context)
-                                            .pop(); // Close the dialog
-                                      },
-                                    ),
-                                    TextButton(
-                                      child: Text('Delete'),
-                                      onPressed: () {
-                                        _deleteSchedule(schedule);
-                                        Navigator.of(context)
-                                            .pop(); // Close the dialog
-                                      },
+                                    Text(
+                                      schedule.editor ?? '',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.blue, // Customize the color as per your preference
+                                      ),
                                     ),
                                   ],
-                                );
-                              },
-                            );
-                        },
-                        child: ListTile(
-                          title: Row(
-                            children: [
-                              Text(
-                                DateFormat.jm().format(schedule.time),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: scheduleColor,
                                 ),
                               ),
-                              SizedBox(width: 8),
-                              Container(
-                                padding: EdgeInsets.only(right: 16),
-                                // Adjust the padding as per your preference
-                                child: (schedule.imageUrl != null &&
-                                        schedule.imageUrl?.isNotEmpty == true)
-                                    ? GestureDetector(
-                                        onTap: () {
-                                          // Handle the image click here
-                                          if (schedule.imageUrl != null) {
-                                            showDialog(
-                                              context: context,
-                                              builder: (BuildContext context) {
-                                                return AlertDialog(
-                                                  title: Text('Uploaded Image'),
-                                                  content: Image.network(
-                                                      schedule.imageUrl!),
-                                                  actions: <Widget>[
-                                                    TextButton(
-                                                      child: Text('Close'),
-                                                      onPressed: () {
-                                                        Navigator.of(context)
-                                                            .pop(); // Close the dialog
-                                                      },
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
-                                          }
-                                        },
-                                        child: IconButton(
-                                          icon: Icon(Icons.image),
-                                          onPressed: () {
-                                            if (schedule.imageUrl != null) {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (BuildContext context) =>
-                                                          ZoomableImagePage(
-                                                    imageUrl:
-                                                        schedule.imageUrl!,
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      )
-                                    : SizedBox(),
-                              ),
-                            ],
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('विषय: ${schedule.agenda}'),
-                              Text('निम्तो कर्ता: ${schedule.applicant}'),
-                              Text('ठेगाना: ${schedule.address}'),
-                              Text('कैफियत: ${schedule.remarks}'),
-                              Align(
-                                alignment: Alignment.bottomRight,
-                                child: Container(
-                                  margin: EdgeInsets.only(top: 4),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        schedule.uploader ?? '',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: Colors
-                                              .blue, // Customize the color as per your preference
-                                        ),
-                                      ),
-                                      Text(
-                                        schedule.editor ?? '',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: Colors
-                                              .blue, // Customize the color as per your preference
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              isPastDate
-                                  ? Checkbox(
-                                      value: schedule.attended,
-                                      onChanged: (newValue) {
-                                        setState(() {
-                                          schedule
-                                              .setAttended(newValue ?? false);
-                                          schedule.setEditor(
-                                              currentUser?.displayName ?? '');
-                                          // DatabaseHelper.updateSchedule(schedule);
-                                          updateFireStoresSchedule(schedule);
-                                        });
-                                      },
-                                    )
-                                  : SizedBox(),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ));
-                },
-              ),
-            ],
+                        trailing: isPastDate
+                            ? Checkbox(
+                          value: schedule.attended,
+                          onChanged: (newValue) {
+                            setState(() {
+                              schedule.setAttended(newValue ?? false);
+                              schedule.setEditor(currentUser?.displayName ?? '');
+                              // DatabaseHelper.updateSchedule(schedule);
+                            });
+                          },
+                        )
+                            : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
           );
-        },
+        }).toList(),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -1372,6 +1348,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
     );
   }
+
 
   void deleteFireStoreSchedule(Schedule schedule) {
     schedules_data.doc(schedule.id).delete().then(

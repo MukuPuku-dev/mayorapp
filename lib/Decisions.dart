@@ -480,7 +480,7 @@ class FirestoreService {
 
 
   Future<void> deleteOrder(Order order) async {
-    await ordersCollection.doc(order.dateTime.toString()).delete();
+    await ordersCollection.doc(order.id).delete();
   }
 }
 
