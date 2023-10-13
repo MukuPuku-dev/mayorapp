@@ -12,6 +12,7 @@ class Schedule {
   String? uploader;
   String? editor;
   String? id;
+  String? additionalImages;
 
   Schedule({
     required this.time,
@@ -24,6 +25,7 @@ class Schedule {
     this.uploader,
     this.editor,
     this.id,
+    this.additionalImages,
   });
 
   void setAttended(bool isAttended) {

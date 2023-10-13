@@ -28,6 +28,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:photo_view/photo_view_gallery.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // import 'package:flutter_alarm_clock/flutter_alarm_clock.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
@@ -226,6 +228,23 @@ extension DateOnlyCompare on DateTime {
   }
 }
 
+Future<XFile?> compressImage(File file) async {
+  try {
+    final compressedFile = await FlutterImageCompress.compressAndGetFile(
+      file.path,
+      '${file.path}.webp',
+      quality: 10,
+      format: CompressFormat.webp,
+    );
+
+    return compressedFile;
+  } catch (error) {
+    // Handle any errors that occur during image compression
+    print('Image compression error: $error');
+    return null; // Return null if compression fails
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -392,6 +411,7 @@ class _ScheduleFormState extends State<ScheduleForm> {
   File? _selectedImage;
   var imageUrl = '';
   bool updateImage = false;
+  bool addAnotherImage = false;
   Schedule? existingSchedule; // Declare the variable here
   @override
   void initState() {
@@ -596,7 +616,7 @@ class _ScheduleFormState extends State<ScheduleForm> {
             final currentImageUrl = existingSchedule!.imageUrl;
             // Delete the previous image from Firebase Storage if it exists
             // print("one");
-            if (currentImageUrl != null && currentImageUrl !="") {
+            if (currentImageUrl != null && currentImageUrl != "") {
               // print("two");
               final storageRef = firebase_storage.FirebaseStorage.instance
                   .refFromURL(currentImageUrl);
@@ -616,23 +636,6 @@ class _ScheduleFormState extends State<ScheduleForm> {
     }
 
     return null; // Return null if image upload fails or no image selected
-  }
-
-  Future<XFile?> compressImage(File file) async {
-    try {
-      final compressedFile = await FlutterImageCompress.compressAndGetFile(
-        file.path,
-        '${file.path}.webp',
-        quality: 10,
-        format: CompressFormat.webp,
-      );
-
-      return compressedFile;
-    } catch (error) {
-      // Handle any errors that occur during image compression
-      print('Image compression error: $error');
-      return null; // Return null if compression fails
-    }
   }
 
   @override
@@ -879,6 +882,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 imageUrl: scheduleData['imageUrl'] as String?,
                 uploader: scheduleData['uploader'] as String?,
                 editor: scheduleData['editor'] as String?,
+                additionalImages: scheduleData['additionalImages'] as String?,
               );
               // print(schedule.id);
               // print("IDS");
@@ -1044,6 +1048,133 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
+  void _showImageGallery(int initialIndex, List<String> imageUrls) {
+    Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: animation.value,
+              child: Scaffold(
+                body: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    color: Colors.black, // Set background color to black
+                    child: Center(
+                      child: PhotoViewGallery.builder(
+                        itemCount: imageUrls.length,
+                        builder: (context, index) {
+                          return PhotoViewGalleryPageOptions(
+                            imageProvider:
+                                CachedNetworkImageProvider(imageUrls[index]),
+                            minScale: PhotoViewComputedScale.contained,
+                            maxScale: PhotoViewComputedScale.covered * 2,
+                            
+                          );
+
+                        },
+                        scrollPhysics: BouncingScrollPhysics(),
+                        pageController:
+                            PageController(initialPage: initialIndex),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ));
+  }
+
+  Future<void> selectImage(Schedule schedule) async {
+    try {
+      final picker = ImagePicker();
+      final imageSource = await showDialog<ImageSource>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: Text("Select Image Source"),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.camera),
+                  title: Text("Camera"),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.camera);
+                  },
+                ),
+                SizedBox(height: 16),
+                ListTile(
+                  leading: Icon(Icons.photo_library),
+                  title: Text("Gallery"),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (imageSource != null) {
+        final pickedFile = await picker.pickImage(source: imageSource);
+        if (pickedFile != null) {
+          File? _selectedImage = File(pickedFile.path);
+          String? imageUrl = await uploadImage(_selectedImage);
+          if (imageUrl != null) {
+            if (schedule.additionalImages != null) {
+              schedule.additionalImages = (schedule.additionalImages!.isNotEmpty
+                      ? "${schedule.additionalImages!},"
+                      : "") +
+                  imageUrl;
+            } else {
+              schedule.additionalImages = imageUrl;
+            }
+            updateFireStoresSchedule(schedule);
+          }
+        }
+      }
+    } catch (error) {
+      // Handle any errors that occur during image upload
+      print('Image Select error: $error');
+    }
+  }
+
+  Future<String?> uploadImage(_selectedImage) async {
+    try {
+      if (_selectedImage != null) {
+        // Compress the image
+        final compressedImage = await compressImage(_selectedImage!);
+
+        if (compressedImage != null) {
+          // Upload the compressed image to Firebase Storage
+          final storageRef = firebase_storage.FirebaseStorage.instance
+              .ref()
+              .child('schedules/${DateTime.now().millisecondsSinceEpoch}.webp');
+          final uploadTask = storageRef.putFile(File(compressedImage.path));
+
+          // Get the image URL after upload completes
+          final snapshot = await uploadTask.whenComplete(() {});
+          final downloadURL = await snapshot.ref.getDownloadURL();
+
+          return downloadURL; // Return the download URL
+          //delete the existing image if exists
+        }
+      }
+    } catch (error) {
+      // Handle any errors that occur during image upload
+      print('Image upload error: $error');
+    }
+
+    return null; // Return null if image upload fails or no image selected
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -1137,10 +1268,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   final isPastDate = _isPastDate(schedule.time);
                   final scheduleColor = isPastDate
                       ? (schedule.attended ? Colors.green : Colors.blue)
-                      : (isToday?Colors.red:null);
+                      : (isToday ? Colors.red : null);
                   final scheduleTextColor = isPastDate
                       ? Colors.black
-                      : (isToday?scheduleColor:null);
+                      : (isToday ? scheduleColor : null);
 
                   return Card(
                     color: isToday
@@ -1265,21 +1396,49 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                           );
                                         }
                                       },
-                                      child: IconButton(
-                                        icon: Icon(Icons.image),
-                                        onPressed: () {
-                                          if (schedule.imageUrl != null) {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder:
-                                                    (BuildContext context) =>
-                                                        ZoomableImagePage(
-                                                  imageUrl: schedule.imageUrl!,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(Icons.image),
+                                            onPressed: () {
+                                              if (schedule.imageUrl != null) {
+                                                String? urls =
+                                                    schedule.imageUrl;
+                                                if (schedule.additionalImages !=
+                                                        null &&
+                                                    schedule.additionalImages!
+                                                        .isNotEmpty) {
+                                                  urls =
+                                                      "$urls,${schedule.additionalImages}";
+                                                }
+                                                List<String> imageUrls =
+                                                    urls!.split(",");
+                                                // Navigator.of(context).push(
+                                                //   MaterialPageRoute(
+                                                //     builder:
+                                                //         (BuildContext context) =>
+                                                _showImageGallery(0, imageUrls);
+                                                //         ZoomableImagePage(
+                                                //   imageUrl: schedule.imageUrl!,
+                                                // ),
+                                                //   ),
+                                                // );
+                                              }
+                                            },
+                                          ),
+                                          Text(schedule.additionalImages !=
+                                                      null &&
+                                                  schedule.additionalImages!
+                                                      .isNotEmpty
+                                              ? "${ schedule.additionalImages!.split(",").length+1}"
+                                              : ""),
+                                          if(!isPastDate) IconButton(
+                                            icon: Icon(Icons.add_circle),
+                                            onPressed: () {
+                                              selectImage(schedule);
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     )
                                   : SizedBox(),
@@ -1289,10 +1448,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('विषय: ${schedule.agenda}',style:TextStyle(color:scheduleTextColor)),
-                            Text('निम्तो कर्ता: ${schedule.applicant}',style:TextStyle(color:scheduleTextColor)),
-                            Text('ठेगाना: ${schedule.address}',style:TextStyle(color:scheduleTextColor)),
-                            Text('कैफियत: ${schedule.remarks}',style:TextStyle(color:scheduleTextColor)),
+                            Text('विषय: ${schedule.agenda}',
+                                style: TextStyle(color: scheduleTextColor)),
+                            Text('निम्तो कर्ता: ${schedule.applicant}',
+                                style: TextStyle(color: scheduleTextColor)),
+                            Text('ठेगाना: ${schedule.address}',
+                                style: TextStyle(color: scheduleTextColor)),
+                            Text('कैफियत: ${schedule.remarks}',
+                                style: TextStyle(color: scheduleTextColor)),
                             Align(
                               alignment: Alignment.bottomRight,
                               child: Container(
@@ -1376,11 +1539,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           },
           onError: (e) => print("Error deleting"),
         );
-    if (schedule.imageUrl != null) {
-      final storageRef = firebase_storage.FirebaseStorage.instance
-          .refFromURL(schedule.imageUrl!);
-      storageRef.delete();
+    try{
+      if (schedule.imageUrl != null) {
+        final storageRef = firebase_storage.FirebaseStorage.instance
+            .refFromURL(schedule.imageUrl!);
+        storageRef.delete();
+      }
+    }catch(e){
+      print("error deleteing imageUrl");
     }
+    try{
+      if(schedule.additionalImages !=null){
+          List<String> images = schedule.additionalImages!.split(",");
+          images.forEach((url) {
+            final storageRef = firebase_storage.FirebaseStorage.instance
+                .refFromURL(url);
+            storageRef.delete();
+          });
+      }
+    }catch(e){
+
+    }
+
   }
 }
 
@@ -1395,6 +1575,7 @@ void updateFireStoresSchedule(Schedule schedule) {
     'imageUrl': schedule.imageUrl,
     'uploader': schedule.uploader,
     'editor': schedule.editor,
+    'additionalImages': schedule.additionalImages,
   }, SetOptions(merge: true)).onError(
       (e, _) => print("Error writing document: $e"));
 }
