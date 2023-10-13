@@ -254,6 +254,7 @@ class MyApp extends StatelessWidget {
           } else {
             // User is not logged in, show the login screen
             return LoginScreen();
+            return ScheduleScreen();
           }
         },
       ),
@@ -314,7 +315,11 @@ String getGoogleClientId() {
 class LoginScreen extends StatelessWidget {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: getGoogleClientId(),
+    // clientId: getGoogleClientId(),
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/contacts.readonly',
+    ],
   );
 
   Future<UserCredential?> _signInWithGoogle() async {
@@ -477,7 +482,7 @@ class _ScheduleFormState extends State<ScheduleForm> {
       // Update the existing schedule
       schedule.uploader = existingSchedule!.uploader;
 
-      schedule.editor = currentUser!.displayName;
+      schedule.editor = currentUser?.displayName;
       schedule.id = existingSchedule!.id;
       if (updateImage) {
         await uploadImage();
@@ -590,7 +595,9 @@ class _ScheduleFormState extends State<ScheduleForm> {
             // Get the current image URL from the schedule object
             final currentImageUrl = existingSchedule!.imageUrl;
             // Delete the previous image from Firebase Storage if it exists
-            if (currentImageUrl != null) {
+            // print("one");
+            if (currentImageUrl != null && currentImageUrl !="") {
+              // print("two");
               final storageRef = firebase_storage.FirebaseStorage.instance
                   .refFromURL(currentImageUrl);
               await storageRef.delete();
@@ -1089,7 +1096,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           final isEvenDate = _dateEntries.indexOf(dateEntry) % 2 == 0;
           final isToday = _isToday(dateEntry.date);
           final dateBackgroundColor =
-          isToday ? Color(0xFF90F9E4) : _getDateBackgroundColor(isEvenDate);
+              isToday ? Color(0xFF90F9E4) : _getDateBackgroundColor(isEvenDate);
 
           return Card(
             color: dateBackgroundColor,
@@ -1125,18 +1132,22 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                 ),
                 ...dateEntry.schedules.map((schedule) {
-                  final isEvenTime = dateEntry.schedules.indexOf(schedule) % 2 == 0;
+                  final isEvenTime =
+                      dateEntry.schedules.indexOf(schedule) % 2 == 0;
                   final isPastDate = _isPastDate(schedule.time);
                   final scheduleColor = isPastDate
-                      ? (schedule.attended ? Colors.green : Colors.red)
-                      : null;
+                      ? (schedule.attended ? Colors.green : Colors.blue)
+                      : (isToday?Colors.red:null);
+                  final scheduleTextColor = isPastDate
+                      ? Colors.black
+                      : (isToday?scheduleColor:null);
 
                   return Card(
                     color: isToday
                         ? Colors.white60
                         : isEvenTime
-                        ? Colors.grey[100]
-                        : Colors.white,
+                            ? Colors.grey[100]
+                            : Colors.white,
                     child: GestureDetector(
                       onLongPress: () {
                         if (!isPastDate)
@@ -1151,7 +1162,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 actions: <Widget>[
                                   ElevatedButton(
                                     style: ButtonStyle(
-                                      backgroundColor: MaterialStateProperty.all(
+                                      backgroundColor:
+                                          MaterialStateProperty.all(
                                         Colors.blue,
                                       ),
                                       // Customize the button style as desired
@@ -1194,14 +1206,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   TextButton(
                                     child: Text('Cancel'),
                                     onPressed: () {
-                                      Navigator.of(context).pop(); // Close the dialog
+                                      Navigator.of(context)
+                                          .pop(); // Close the dialog
                                     },
                                   ),
                                   TextButton(
                                     child: Text('Delete'),
                                     onPressed: () {
                                       _deleteSchedule(schedule);
-                                      Navigator.of(context).pop(); // Close the dialog
+                                      Navigator.of(context)
+                                          .pop(); // Close the dialog
                                     },
                                   ),
                                 ],
@@ -1224,48 +1238,50 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               padding: EdgeInsets.only(right: 16),
                               // Adjust the padding as per your preference
                               child: (schedule.imageUrl != null &&
-                                  schedule.imageUrl?.isNotEmpty == true)
+                                      schedule.imageUrl?.isNotEmpty == true)
                                   ? GestureDetector(
-                                onTap: () {
-                                  // Handle the image click here
-                                  if (schedule.imageUrl != null) {
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text('Uploaded Image'),
-                                          content: Image.network(
-                                            schedule.imageUrl!,
-                                          ),
-                                          actions: <Widget>[
-                                            TextButton(
-                                              child: Text('Close'),
-                                              onPressed: () {
-                                                Navigator.of(context).pop(); // Close the dialog
-                                              },
-                                            ),
-                                          ],
-                                        );
+                                      onTap: () {
+                                        // Handle the image click here
+                                        if (schedule.imageUrl != null) {
+                                          showDialog(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: Text('Uploaded Image'),
+                                                content: Image.network(
+                                                  schedule.imageUrl!,
+                                                ),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Close'),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop(); // Close the dialog
+                                                    },
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        }
                                       },
-                                    );
-                                  }
-                                },
-                                child: IconButton(
-                                  icon: Icon(Icons.image),
-                                  onPressed: () {
-                                    if (schedule.imageUrl != null) {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (BuildContext context) =>
-                                              ZoomableImagePage(
-                                                imageUrl: schedule.imageUrl!,
+                                      child: IconButton(
+                                        icon: Icon(Icons.image),
+                                        onPressed: () {
+                                          if (schedule.imageUrl != null) {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (BuildContext context) =>
+                                                        ZoomableImagePage(
+                                                  imageUrl: schedule.imageUrl!,
+                                                ),
                                               ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              )
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    )
                                   : SizedBox(),
                             ),
                           ],
@@ -1273,10 +1289,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('विषय: ${schedule.agenda}'),
-                            Text('निम्तो कर्ता: ${schedule.applicant}'),
-                            Text('ठेगाना: ${schedule.address}'),
-                            Text('कैफियत: ${schedule.remarks}'),
+                            Text('विषय: ${schedule.agenda}',style:TextStyle(color:scheduleTextColor)),
+                            Text('निम्तो कर्ता: ${schedule.applicant}',style:TextStyle(color:scheduleTextColor)),
+                            Text('ठेगाना: ${schedule.address}',style:TextStyle(color:scheduleTextColor)),
+                            Text('कैफियत: ${schedule.remarks}',style:TextStyle(color:scheduleTextColor)),
                             Align(
                               alignment: Alignment.bottomRight,
                               child: Container(
@@ -1288,14 +1304,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                       schedule.uploader ?? '',
                                       style: TextStyle(
                                         fontSize: 9,
-                                        color: Colors.blue, // Customize the color as per your preference
+                                        color: Colors
+                                            .blue, // Customize the color as per your preference
                                       ),
                                     ),
                                     Text(
                                       schedule.editor ?? '',
                                       style: TextStyle(
                                         fontSize: 9,
-                                        color: Colors.blue, // Customize the color as per your preference
+                                        color: Colors
+                                            .blue, // Customize the color as per your preference
                                       ),
                                     ),
                                   ],
@@ -1306,15 +1324,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         ),
                         trailing: isPastDate
                             ? Checkbox(
-                          value: schedule.attended,
-                          onChanged: (newValue) {
-                            setState(() {
-                              schedule.setAttended(newValue ?? false);
-                              schedule.setEditor(currentUser?.displayName ?? '');
-                              // DatabaseHelper.updateSchedule(schedule);
-                            });
-                          },
-                        )
+                                value: schedule.attended,
+                                onChanged: (newValue) {
+                                  setState(() {
+                                    schedule.setAttended(newValue ?? false);
+                                    schedule.setEditor(
+                                        currentUser?.displayName ?? '');
+                                    // DatabaseHelper.updateSchedule(schedule);
+                                  });
+                                },
+                              )
                             : null,
                       ),
                     ),
@@ -1348,7 +1367,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
     );
   }
-
 
   void deleteFireStoreSchedule(Schedule schedule) {
     schedules_data.doc(schedule.id).delete().then(

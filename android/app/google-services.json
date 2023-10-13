@@ -12,7 +12,28 @@
           "package_name": "com.municipality.mayorapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "707616392800-bbe1lm4eknbqqlnuaih22lgvuj1c38cn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.municipality.mayorapp",
+            "certificate_hash": "c2760525bb712553e5f985e990560105678d0460"
+          }
+        },
+        {
+          "client_id": "707616392800-tfsq93frcs766ohs1hc7ubguns430650.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.municipality.mayorapp",
+            "certificate_hash": "515afc4c672b0fddde789da70401be9f07c4ed7c"
+          }
+        },
+        {
+          "client_id": "707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDW8Gr0vQlfIAS9PQ8jy0QetpCzCrp7KIM"
@@ -20,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "707616392800-d9dbkbpgf3dha27v4tmodrfrp4529b74.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "707616392800-hm3qtoqtibha4a15b3noaoqf0it2jqu6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.municipality.mayorapp"
+              }
+            }
+          ]
         }
       }
     }
