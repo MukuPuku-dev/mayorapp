@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
+    <string name="action_sign_out">Sign Out</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-cache-path name="my_images" path="."/>
+    <!-- You can also use external-files-path, cache-path etc.
+         external-cache-path is good for temporary camera files. -->
+</paths>
